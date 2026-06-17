@@ -18,6 +18,8 @@ class Hyperparameters:
     fc1_nodes: int
     enable_double_dqn: bool
     enable_dueling_dqn: bool
+    loss_function: str  
+    optimizer: str      
     env_make_params: dict = field(default_factory=dict)
 
 
@@ -44,5 +46,7 @@ def load_hyperparameters(path: str, hyperparameter_set: str) -> Hyperparameters:
         fc1_nodes=params['fc1_nodes'],
         enable_double_dqn=params.get('enable_double_dqn', False),
         enable_dueling_dqn=params.get('enable_dueling_dqn', False),
+        loss_function=params.get('loss_function', 'MSELoss'), 
+        optimizer=params.get('optimizer', 'Adam'),
         env_make_params=params.get('env_make_params', {}),
     )

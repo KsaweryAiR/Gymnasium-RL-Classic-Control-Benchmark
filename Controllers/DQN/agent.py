@@ -1,10 +1,10 @@
 import torch
 from torch import nn
 from typing import List, Tuple
-
+import torch.optim as optim
 from config import Hyperparameters
-from dqn_controller import DQN
-from experience_replay import ReplayMemory
+from .network import DQN
+from .experience_replay import ReplayMemory
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -21,7 +21,9 @@ class Agent:
             enable_dueling=self.hp.enable_dueling_dqn
         ).to(device)
 
-        self.loss_fn = nn.MSELoss()
+        loss_class = getattr(nn, self.hp.loss_function)
+        self.loss_fn = loss_class() 
+        
         self.optimizer = None
 
     def select_action(self, state: torch.Tensor) -> torch.Tensor:
@@ -39,7 +41,8 @@ class Agent:
 
         memory = ReplayMemory(self.hp.replay_memory_size)
 
-        self.optimizer = torch.optim.Adam(self.policy_dqn.parameters(), lr=self.hp.learning_rate)
+        optimizer_class = getattr(optim, self.hp.optimizer)
+        self.optimizer = optimizer_class(self.policy_dqn.parameters(), lr=self.hp.learning_rate)
 
         return target_dqn, memory
 
@@ -58,7 +61,6 @@ class Agent:
                 target_q = rewards + (1 - terminations) * self.hp.discount_factor * \
                     target_dqn(new_states).gather(dim=1, index=best_actions.unsqueeze(dim=1)).squeeze()
             else:
-                # Standardowy DQN: target_dqn wybiera i ocenia akcję – może prowadzić do przeszacowania Q
                 target_q = rewards + (1 - terminations) * self.hp.discount_factor * \
                     target_dqn(new_states).max(dim=1)[0]
 

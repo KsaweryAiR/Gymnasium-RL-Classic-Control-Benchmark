@@ -7,7 +7,7 @@ import os
 from datetime import datetime, timedelta
 from typing import Optional
 
-from agent import Agent
+from Controllers.DQN.agent import Agent
 from config import Hyperparameters
 from visualizer import save_graph
 

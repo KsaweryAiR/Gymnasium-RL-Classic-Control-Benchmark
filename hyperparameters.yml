@@ -12,6 +12,8 @@ cartpole1:
   fc1_nodes: 64
   enable_double_dqn: true
   enable_dueling_dqn: true
+  loss_function: MSELoss
+  optimizer: Adam
 
 flappybird1:
   env_id: FlappyBird-v0
@@ -29,3 +31,28 @@ flappybird1:
     use_lidar: false
   enable_double_dqn: true
   enable_dueling_dqn: true
+  loss_function: MSELoss
+  optimizer: Adam
+
+lunarlander1:
+  env_id: LunarLander-v3
+  replay_memory_size: 100000
+  mini_batch_size: 256
+  epsilon_init: 1
+  epsilon_decay: 0.9999
+  epsilon_min: 0.05
+  network_sync_rate: 100
+  learning_rate_a: 0.0001
+  discount_factor_g: 0.99
+  stop_on_reward: 10000
+  fc1_nodes: 256
+  env_make_params:
+    continuous: false
+    gravity: -10.0
+    enable_wind: false
+    wind_power: 15.0
+    turbulence_power: 1.5
+  enable_double_dqn: true
+  enable_dueling_dqn: true
+  loss_function: MSELoss
+  optimizer: Adam
