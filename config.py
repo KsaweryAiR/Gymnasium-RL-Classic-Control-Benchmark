@@ -1,52 +1,29 @@
 import yaml
-from dataclasses import dataclass, field
-from typing import Optional
 
-
-@dataclass
 class Hyperparameters:
-    env_id: str
-    learning_rate: float
-    discount_factor: float
-    network_sync_rate: int
-    replay_memory_size: int
-    mini_batch_size: int
-    epsilon_init: float
-    epsilon_decay: float
-    epsilon_min: float
-    stop_on_reward: float
-    fc1_nodes: int
-    enable_double_dqn: bool
-    enable_dueling_dqn: bool
-    loss_function: str  
-    optimizer: str      
-    env_make_params: dict = field(default_factory=dict)
+   
+    def __init__(self, **entries):
+        self.__dict__.update(entries)
 
 
-def load_hyperparameters(path: str, hyperparameter_set: str) -> Hyperparameters:
+def load_hyperparameters(path: str, hyperparameter_set: str, controller_name: str) -> Hyperparameters:
     with open(path, 'r') as f:
         all_sets = yaml.safe_load(f)
 
     if hyperparameter_set not in all_sets:
-        raise KeyError(f"Hyperparameter set '{hyperparameter_set}' not found in {path}")
+        raise KeyError(f"Błąd: Nie znaleziono obiektu '{hyperparameter_set}' w pliku {path}")
 
-    params = all_sets[hyperparameter_set]
 
-    return Hyperparameters(
-        env_id=params['env_id'],
-        learning_rate=params['learning_rate_a'],
-        discount_factor=params['discount_factor_g'],
-        network_sync_rate=params['network_sync_rate'],
-        replay_memory_size=params['replay_memory_size'],
-        mini_batch_size=params['mini_batch_size'],
-        epsilon_init=params['epsilon_init'],
-        epsilon_decay=params['epsilon_decay'],
-        epsilon_min=params['epsilon_min'],
-        stop_on_reward=params['stop_on_reward'],
-        fc1_nodes=params['fc1_nodes'],
-        enable_double_dqn=params.get('enable_double_dqn', False),
-        enable_dueling_dqn=params.get('enable_dueling_dqn', False),
-        loss_function=params.get('loss_function', 'MSELoss'), 
-        optimizer=params.get('optimizer', 'Adam'),
-        env_make_params=params.get('env_make_params', {}),
-    )
+    env_params = all_sets[hyperparameter_set].get('env', {})
+    
+  
+    controller_params = all_sets[hyperparameter_set].get(controller_name.lower(), {})
+
+
+    if not controller_params:
+         print(f"Ostrzeżenie: Brak dedykowanej sekcji '{controller_name.lower()}' dla obiektu '{hyperparameter_set}' w YAML.")
+
+
+    combined_params = {**env_params, **controller_params}
+
+    return Hyperparameters(**combined_params)

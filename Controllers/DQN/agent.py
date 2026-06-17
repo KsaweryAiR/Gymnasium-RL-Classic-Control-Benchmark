@@ -1,28 +1,31 @@
 import torch
 from torch import nn
-from typing import List, Tuple
 import torch.optim as optim
+from typing import List, Tuple
+
 from config import Hyperparameters
 from .network import DQN
 from .experience_replay import ReplayMemory
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-
 class Agent:
 
     def __init__(self, num_states: int, num_actions: int, hyperparameters: Hyperparameters):
         self.hp = hyperparameters
+        
+        self.num_states = num_states
+        self.num_actions = num_actions
 
         self.policy_dqn = DQN(
-            num_states,
-            num_actions,
-            self.hp.fc1_nodes,
+            self.num_states,
+            self.num_actions,
+            self.hp.hidden_layers,
             enable_dueling=self.hp.enable_dueling_dqn
         ).to(device)
 
         loss_class = getattr(nn, self.hp.loss_function)
-        self.loss_fn = loss_class() 
+        self.loss_fn = loss_class()
         
         self.optimizer = None
 
@@ -32,11 +35,12 @@ class Agent:
 
     def init_training(self) -> Tuple[DQN, ReplayMemory]:
         target_dqn = DQN(
-            self.policy_dqn.fc1.in_features,
-            self.policy_dqn.advantages.out_features if self.hp.enable_dueling_dqn else self.policy_dqn.output.out_features,
-            self.hp.fc1_nodes,
+            self.num_states,
+            self.num_actions,
+            self.hp.hidden_layers,
             enable_dueling=self.hp.enable_dueling_dqn
         ).to(device)
+        
         target_dqn.load_state_dict(self.policy_dqn.state_dict())
 
         memory = ReplayMemory(self.hp.replay_memory_size)

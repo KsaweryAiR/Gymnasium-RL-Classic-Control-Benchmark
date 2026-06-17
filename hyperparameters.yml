@@ -1,19 +1,45 @@
 cartpole1:
-  env_id: CartPole-v1
-  replay_memory_size: 100000
-  mini_batch_size: 32
-  epsilon_init: 1
-  epsilon_decay: 0.9905
-  epsilon_min: 0.05
-  network_sync_rate: 10
-  learning_rate_a: 0.003
-  discount_factor_g: 0.99
-  stop_on_reward: 10000
-  fc1_nodes: 64
-  enable_double_dqn: true
-  enable_dueling_dqn: true
-  loss_function: MSELoss
-  optimizer: Adam
+  env:
+    env_id: CartPole-v1
+    stop_on_reward: 500
+    env_make_params: {}
+ 
+  dqn:
+    hidden_layers: [64, 64]
+    learning_rate: 0.003
+    discount_factor: 0.99
+    replay_memory_size: 100000
+    mini_batch_size: 32
+    epsilon_init: 1.0
+    epsilon_decay: 0.9905
+    epsilon_min: 0.05
+    network_sync_rate: 10
+    enable_double_dqn: true
+    enable_dueling_dqn: true
+    loss_function: MSELoss
+    optimizer: Adam
+
+  ppo:
+    hidden_layers: [64, 64]
+    learning_rate_actor: 0.0003
+    learning_rate_critic: 0.001
+    discount_factor: 0.99
+    n_steps: 2048              # Rozmiar Rollout Buffer
+    batch_size: 64             # PPO też używa batchy podczas nauki z bufora
+    n_epochs: 10               # Ile razy uczyć się na zebranym buforze
+    clip_range: 0.2            # Specyficzne dla PPO (Clipped Surrogate Objective)
+
+  pid:
+    kp: 1.5
+    ki: 0.1
+    kd: 0.05
+    dt: 0.02                   # Krok czasowy środowiska
+
+  mpc:
+    prediction_horizon: 20
+    control_horizon: 5
+    q_matrix: [1.0, 0.0, 1.0, 0.0]  # Wagi kar za uchyb stanu
+    r_matrix: [0.1]                 # Waga kary za zużycie energii/sterowania
 
 flappybird1:
   env_id: FlappyBird-v0
@@ -26,33 +52,35 @@ flappybird1:
   learning_rate_a: 0.0001
   discount_factor_g: 0.99
   stop_on_reward: 120
-  fc1_nodes: 512
   env_make_params:
     use_lidar: false
   enable_double_dqn: true
   enable_dueling_dqn: true
   loss_function: MSELoss
   optimizer: Adam
+  hidden_layers: [64, 64]
 
 lunarlander1:
-  env_id: LunarLander-v3
-  replay_memory_size: 100000
-  mini_batch_size: 256
-  epsilon_init: 1
-  epsilon_decay: 0.9999
-  epsilon_min: 0.05
-  network_sync_rate: 100
-  learning_rate_a: 0.0001
-  discount_factor_g: 0.99
-  stop_on_reward: 10000
-  fc1_nodes: 256
-  env_make_params:
-    continuous: false
-    gravity: -10.0
-    enable_wind: false
-    wind_power: 15.0
-    turbulence_power: 1.5
-  enable_double_dqn: true
-  enable_dueling_dqn: true
-  loss_function: MSELoss
-  optimizer: Adam
+  env:
+    env_id: LunarLander-v3
+    stop_on_reward: 200
+    env_make_params:
+      continuous: false
+      gravity: -10.0
+      enable_wind: false
+      wind_power: 15.0
+ 
+  dqn:
+    hidden_layers: [256, 256, 128]
+    learning_rate: 0.0005
+    discount_factor: 0.99
+    replay_memory_size: 100000
+    mini_batch_size: 126
+    epsilon_init: 1.0
+    epsilon_decay: 0.9999
+    epsilon_min: 0.07
+    network_sync_rate: 100
+    enable_double_dqn: true
+    enable_dueling_dqn: true
+    loss_function: MSELoss
+    optimizer: Adam
