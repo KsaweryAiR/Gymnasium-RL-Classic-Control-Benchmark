@@ -6,8 +6,8 @@ import os
 # ==========================================
 OBJECT = "lunarlander1"     # Nazwa sekcji z hyperparameters.yml (np. cartpole1, flappybird1, lunarlander1)
 CONTROLLER = "DQN"       # Typ kontrolera (DQN, PID, MPC)
-MODE = "train"           # Tryb działania: 'train' (nauka) lub 'test' (testowanie). Dla PID/MPC może być 'run'
-RENDER = False           # Czy renderować graficznie środowisko (używane głównie przy MODE = 'test')
+MODE = "test"           # Tryb działania: 'train' (nauka) lub 'test' (testowanie). Dla PID/MPC może być 'run'
+RENDER = True           # Czy renderować graficznie środowisko (używane głównie przy MODE = 'test')
 # ==========================================
 
 def main():

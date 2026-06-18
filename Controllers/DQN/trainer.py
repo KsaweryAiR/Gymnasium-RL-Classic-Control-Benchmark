@@ -55,6 +55,7 @@ class Trainer:
         rewards_per_episode = []
         step_count = 0
         best_reward = float('-inf')
+        best_avg = float('-inf')  
         last_graph_update = start_time
 
         for episode in itertools.count():
@@ -95,16 +96,23 @@ class Trainer:
                 epsilon = max(epsilon * self.hp.epsilon_decay, self.hp.epsilon_min)
             epsilon_history.append(epsilon)
 
-            if episode_reward > best_reward:
-                msg = (
-                    f"{datetime.now().strftime(DATE_FORMAT)}: "
-                    f"New best reward {episode_reward:.1f} "
-                    f"({(episode_reward - best_reward) / abs(best_reward) * 100:+.1f}%) "
-                    f"at episode {episode}, saving model..."
-                )
-                self._log(msg)
-                agent.save(self.model_file)
-                best_reward = episode_reward
+            # if episode_reward > best_reward:
+            #     msg = (
+            #         f"{datetime.now().strftime(DATE_FORMAT)}: "
+            #         f"New best reward {episode_reward:.1f} "
+            #         f"({(episode_reward - best_reward) / abs(best_reward) * 100:+.1f}%) "
+            #         f"at episode {episode}, saving model..."
+            #     )
+            #     self._log(msg)
+            #     agent.save(self.model_file)
+            #     best_reward = episode_reward
+
+            if episode >= 100:
+                avg_100 = sum(rewards_per_episode[-100:]) / 100
+                if avg_100 > best_avg:
+                    agent.save(self.model_file)
+                    best_avg = avg_100
+                    self._log(f"New best avg100: {avg_100:.1f} at episode {episode}")
 
             if datetime.now() - last_graph_update > timedelta(seconds=10):
                 save_graph(self.graph_file, rewards_per_episode, epsilon_history)
