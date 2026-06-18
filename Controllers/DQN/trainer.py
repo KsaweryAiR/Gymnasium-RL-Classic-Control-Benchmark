@@ -17,7 +17,6 @@ os.makedirs(RUNS_DIR, exist_ok=True)
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-
 class Trainer:
 
     def __init__(self, hyperparameter_set: str, hyperparameters: Hyperparameters):
@@ -63,16 +62,16 @@ class Trainer:
             state = torch.tensor(state, dtype=torch.float, device=device)
 
             terminated = False
+            truncated = False
             episode_reward = 0.0
 
-            while not terminated and episode_reward < self.hp.stop_on_reward:
+            while not (terminated or truncated) and episode_reward < self.hp.stop_on_reward:
                 if random.random() < epsilon:
                     action = torch.tensor(env.action_space.sample(), dtype=torch.int64, device=device)
                 else:
                     action = agent.select_action(state)
 
                 new_state, reward, terminated, truncated, _ = env.step(action.item())
-
                 episode_reward += reward
 
                 new_state = torch.tensor(new_state, dtype=torch.float, device=device)
@@ -82,7 +81,19 @@ class Trainer:
                 step_count += 1
                 state = new_state
 
+                if len(memory) > self.hp.mini_batch_size:
+                    mini_batch = memory.sample(self.hp.mini_batch_size)
+                    agent.optimize(mini_batch, target_dqn)
+
+                    if step_count > self.hp.network_sync_rate:
+                        agent.sync_target(target_dqn)
+                        step_count = 0
+
             rewards_per_episode.append(episode_reward)
+
+            if len(memory) > self.hp.mini_batch_size:
+                epsilon = max(epsilon * self.hp.epsilon_decay, self.hp.epsilon_min)
+            epsilon_history.append(epsilon)
 
             if episode_reward > best_reward:
                 msg = (
@@ -99,17 +110,6 @@ class Trainer:
                 save_graph(self.graph_file, rewards_per_episode, epsilon_history)
                 last_graph_update = datetime.now()
 
-            if len(memory) > self.hp.mini_batch_size:
-                mini_batch = memory.sample(self.hp.mini_batch_size)
-                agent.optimize(mini_batch, target_dqn)
-
-                epsilon = max(epsilon * self.hp.epsilon_decay, self.hp.epsilon_min)
-                epsilon_history.append(epsilon)
-
-                if step_count > self.hp.network_sync_rate:
-                    agent.sync_target(target_dqn)
-                    step_count = 0
-
     def test(self, render: bool = True) -> None:
         env = self._make_env(render=render)
         num_states = env.observation_space.shape[0]
@@ -123,9 +123,10 @@ class Trainer:
             state = torch.tensor(state, dtype=torch.float, device=device)
 
             terminated = False
+            truncated = False
             episode_reward = 0.0
 
-            while not terminated:
+            while not (terminated or truncated):
                 action = agent.select_action(state)
                 new_state, reward, terminated, truncated, _ = env.step(action.item())
                 episode_reward += reward
