@@ -5,7 +5,7 @@ import os
 # KONFIGURACJA URUCHOMIENIA
 # ==========================================
 OBJECT = "lunarlander1"     # Nazwa sekcji z hyperparameters.yml (np. cartpole1, flappybird1, lunarlander1)
-CONTROLLER = "DQN"       # Typ kontrolera (DQN, PID, MPC)
+CONTROLLER = "PPO"       # Typ kontrolera (DQN, PID, MPC)
 MODE = "test"           # Tryb działania: 'train' (nauka) lub 'test' (testowanie). Dla PID/MPC może być 'run'
 RENDER = True           # Czy renderować graficznie środowisko (używane głównie przy MODE = 'test')
 # ==========================================
@@ -22,6 +22,10 @@ def main():
 
     if controller_name == 'DQN':
         from Controllers.DQN.trainer import Trainer
+        trainer = Trainer(hyperparameter_set=obj_name, hyperparameters=hp)
+
+    elif controller_name == 'PPO':
+        from Controllers.PPO.trainer import Trainer
         trainer = Trainer(hyperparameter_set=obj_name, hyperparameters=hp)
 
         if mode_name == 'train':

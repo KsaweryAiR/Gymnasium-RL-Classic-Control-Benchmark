@@ -1,4 +1,3 @@
-import random
 import torch
 import gymnasium as gym
 import itertools
@@ -7,7 +6,8 @@ import flappy_bird_gymnasium
 
 from datetime import datetime, timedelta
 from typing import Optional
-from Controllers.DQN.agent import Agent
+from Controllers.PPO.agent import Agent
+from Controllers.PPO.rollout_buffer import RolloutBuffer
 from config import Hyperparameters
 from visualizer import save_graph
 
@@ -23,9 +23,9 @@ class Trainer:
         self.hp = hyperparameters
         self.set_name = hyperparameter_set
 
-        self.log_file   = os.path.join(RUNS_DIR, f'{self.set_name}_DQN.log')
-        self.model_file = os.path.join(RUNS_DIR, f'{self.set_name}_DQN.pt')
-        self.graph_file = os.path.join(RUNS_DIR, f'{self.set_name}_DQN.png')
+        self.log_file   = os.path.join(RUNS_DIR, f'{self.set_name}_PPO.log')
+        self.model_file = os.path.join(RUNS_DIR, f'{self.set_name}_PPO.pt')
+        self.graph_file = os.path.join(RUNS_DIR, f'{self.set_name}_PPO.png')
 
     def _log(self, message: str, mode: str = 'a') -> None:
         print(message)
@@ -41,28 +41,23 @@ class Trainer:
 
     def train(self) -> None:
         start_time = datetime.now()
-        self._log(f"{start_time.strftime(DATE_FORMAT)}: Training starting...", mode='w')
+        self._log(f"{start_time.strftime(DATE_FORMAT)}: Rozpoczynamy trening PPO...", mode='w')
 
         env = self._make_env(render=False)
         num_states = env.observation_space.shape[0]
         num_actions = env.action_space.n
 
         agent = Agent(num_states, num_actions, self.hp)
-        target_dqn, memory = agent.init_training()
+        buffer = RolloutBuffer()
 
-        epsilon = self.hp.epsilon_init
-        epsilon_history = []
         rewards_per_episode = []
-        step_count = 0
-        global_step = 0
-        best_reward = float('-inf')
         best_avg = float('-inf')  
         last_graph_update = start_time
 
         max_timesteps = getattr(self.hp, 'total_timesteps', None)
         stop_reward = getattr(self.hp, 'stop_on_reward', None)
 
-        for episode in itertools.count():
+        for global_step in itertools.count(1):
             state, _ = env.reset()
             state = torch.tensor(state, dtype=torch.float, device=device)
 
@@ -71,60 +66,56 @@ class Trainer:
             episode_reward = 0.0
 
             while not (terminated or truncated):
-                if random.random() < epsilon:
-                    action = torch.tensor(env.action_space.sample(), dtype=torch.int64, device=device)
-                else:
-                    action = agent.select_action(state)
+                
+                action, value, log_prob = agent.select_action(state)
 
-                new_state, reward, terminated, truncated, _ = env.step(action.item())
+                new_state_np, reward, terminated, truncated, _ = env.step(action.item())
                 episode_reward += reward
 
-                new_state = torch.tensor(new_state, dtype=torch.float, device=device)
-                reward = torch.tensor(reward, dtype=torch.float, device=device)
-
-                memory.append((state, action, new_state, reward, terminated))
-                step_count += 1
-                global_step += 1
+                new_state = torch.tensor(new_state_np, dtype=torch.float, device=device)
+                
+                buffer.store(state, action, reward, value, log_prob, terminated or truncated)
+                
                 state = new_state
+                global_step += 1
 
-                if len(memory) > self.hp.mini_batch_size:
-                    mini_batch = memory.sample(self.hp.mini_batch_size)
-                    agent.optimize(mini_batch, target_dqn)
-
-                    if step_count > self.hp.network_sync_rate:
-                        agent.sync_target(target_dqn)
-                        step_count = 0
+                if len(buffer.states) >= self.hp.n_steps:
+                    next_value = agent.get_value(state)
+                    agent.optimize(buffer, next_value)
+                    buffer.clear()
 
                 if max_timesteps is not None and global_step >= max_timesteps:
                     self._log(f"Trening przerwany: Osiągnięto limit {max_timesteps} kroków.")
-                    self._end_training(env, rewards_per_episode, epsilon_history)
+                    self._end_training(env, rewards_per_episode)
                     return
 
             rewards_per_episode.append(episode_reward)
 
-            if len(memory) > self.hp.mini_batch_size:
-                epsilon = max(epsilon * self.hp.epsilon_decay, self.hp.epsilon_min)
-            epsilon_history.append(epsilon)
-
-            if episode >= 100:
+            if len(rewards_per_episode) >= 100:
                 avg_100 = sum(rewards_per_episode[-100:]) / 100
                 if avg_100 > best_avg:
                     agent.save(self.model_file)
                     best_avg = avg_100
-                    self._log(f"New best avg100: {avg_100:.1f} at episode {episode}")
+                    self._log(f"{datetime.now().strftime(DATE_FORMAT)}: Nowy rekord avg100: {avg_100:.1f} w epizodzie {len(rewards_per_episode)}")
                 
                 if stop_reward is not None and avg_100 >= stop_reward:
                     self._log(f"Środowisko rozwiązane! Osiągnięto średnią {avg_100:.1f} (Cel: {stop_reward})")
-                    self._end_training(env, rewards_per_episode, epsilon_history)
+                    self._end_training(env, rewards_per_episode)
                     return
 
+            if len(rewards_per_episode) % 10 == 0:
+                avg_10 = sum(rewards_per_episode[-10:]) / 10
+                # self._log(f"Krok: {global_step} | Epizod: {len(rewards_per_episode)} | Średnia (10): {avg_10:.2f}")
+
             if datetime.now() - last_graph_update > timedelta(seconds=10):
-                save_graph(self.graph_file, rewards_per_episode, epsilon_history)
+                dummy_epsilon = [0.0] * len(rewards_per_episode)
+                save_graph(self.graph_file, rewards_per_episode, dummy_epsilon)
                 last_graph_update = datetime.now()
 
-    def _end_training(self, env, rewards_per_episode, epsilon_history):
+    def _end_training(self, env, rewards_per_episode):
         self._log("Trening zakończony pomyślnie!")
-        save_graph(self.graph_file, rewards_per_episode, epsilon_history)
+        dummy_epsilon = [0.0] * len(rewards_per_episode)
+        save_graph(self.graph_file, rewards_per_episode, dummy_epsilon)
         env.close()
 
     def test(self, render: bool = True) -> None:
@@ -144,7 +135,7 @@ class Trainer:
             episode_reward = 0.0
 
             while not (terminated or truncated):
-                action = agent.select_action(state)
+                action, _, _ = agent.select_action(state)
                 new_state, reward, terminated, truncated, _ = env.step(action.item())
                 episode_reward += reward
                 state = torch.tensor(new_state, dtype=torch.float, device=device)
